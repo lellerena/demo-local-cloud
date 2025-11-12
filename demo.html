@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Demo: Local-First vs Cloud-First</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            .spinner {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #3b82f6;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+            .log-enter {
+                animation: slideIn 0.3s ease-out;
+            }
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
+    </head>
+    <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+        <div class="container mx-auto p-8 max-w-7xl">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-5xl font-bold text-gray-800 mb-2">
+                    Local-First vs Cloud-First
+                </h1>
+                <p class="text-gray-600 text-lg">Demo Interactiva con Roble</p>
+                <div
+                    id="authStatus"
+                    class="mt-4 inline-block px-4 py-2 rounded-lg bg-yellow-100 text-yellow-800 font-semibold"
+                >
+                    🔄 Autenticando...
+                </div>
+            </div>
+
+            <!-- Controles -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <!-- Selector de Modo -->
+                    <div class="flex gap-2">
+                        <button
+                            id="cloudBtn"
+                            class="mode-btn px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all bg-blue-600 text-white shadow-lg scale-105"
+                        >
+                            <svg
+                                class="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                                ></path>
+                            </svg>
+                            Cloud-First
+                        </button>
+                        <button
+                            id="localBtn"
+                            class="mode-btn px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all bg-gray-200 text-gray-600 hover:bg-gray-300"
+                        >
+                            <svg
+                                class="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                                ></path>
+                            </svg>
+                            Local-First
+                        </button>
+                    </div>
+
+                    <!-- Simulador de Conexión -->
+                    <button
+                        id="connectionBtn"
+                        class="px-6 py-3 rounded-lg font-semibold flex items-center gap-2 bg-green-500 text-white hover:bg-green-600"
+                    >
+                        <svg
+                            id="wifiIcon"
+                            class="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                            ></path>
+                        </svg>
+                        <span id="connectionText">Online</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6">
+                <!-- Panel de Acción -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                        <svg
+                            id="modeIcon"
+                            class="w-6 h-6 text-blue-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                            ></path>
+                        </svg>
+                        <span id="modeTitle">Modo Cloud-First</span>
+                    </h2>
+
+                    <!-- Arquitectura Visual -->
+                    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold mb-3 text-sm text-gray-600">
+                            Arquitectura:
+                        </h3>
+                        <div id="architectureInfo" class="space-y-2 text-sm">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                        <div
+                            id="syncExplanation"
+                            class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600"
+                            style="display: none"
+                        >
+                            💡 <strong>Local-First:</strong> Los datos se
+                            guardan primero en el dispositivo (instantáneo) y
+                            luego se sincronizan automáticamente con Roble en
+                            segundo plano.
+                        </div>
+                    </div>
+
+                    <!-- Formulario -->
+                    <div class="mb-4">
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Crear Nuevo Curso:
+                        </label>
+                        <input
+                            type="text"
+                            id="courseInput"
+                            placeholder="Ej: Arquitecturas Móviles"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                        />
+                        <textarea
+                            id="descriptionInput"
+                            placeholder="Descripción (opcional)"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            rows="2"
+                        ></textarea>
+                    </div>
+
+                    <button
+                        id="createBtn"
+                        class="w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 transition-all"
+                    >
+                        <svg
+                            class="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 4v16m8-8H4"
+                            ></path>
+                        </svg>
+                        <span id="btnText">Crear Curso</span>
+                    </button>
+
+                    <!-- Estado de sincronización -->
+                    <div
+                        id="syncStatus"
+                        class="mt-4 p-3 bg-green-50 rounded-lg items-center gap-2 hidden"
+                    >
+                        <div class="flex items-center gap-2">
+                            <div
+                                class="w-2 h-2 bg-green-500 rounded-full"
+                            ></div>
+                            <span class="text-sm text-gray-600" id="syncText"
+                                >Sincronizado con Roble</span
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Lista de Cursos -->
+                    <div class="mt-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold">
+                                Cursos (<span id="courseCount">0</span>):
+                            </h3>
+                            <button
+                                id="refreshBtn"
+                                class="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+                            >
+                                <svg
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    ></path>
+                                </svg>
+                                Recargar
+                            </button>
+                        </div>
+                        <div
+                            id="courseList"
+                            class="space-y-2 max-h-80 overflow-y-auto"
+                        >
+                            <p class="text-gray-400 text-center py-8">
+                                No hay cursos aún
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Logs -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold">Log de Actividad</h2>
+                        <button
+                            id="clearLogs"
+                            class="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                            Limpiar
+                        </button>
+                    </div>
+                    <div
+                        id="logContainer"
+                        class="space-y-2 h-96 overflow-y-auto"
+                    >
+                        <p class="text-gray-400 text-center py-8">
+                            Crea un curso para ver el log
+                        </p>
+                    </div>
+
+                    <!-- Comparación -->
+                    <div
+                        class="mt-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg"
+                    >
+                        <h3 class="font-bold mb-3">📊 Comparación:</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-start gap-2">
+                                <svg
+                                    class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    ></path>
+                                </svg>
+                                <span
+                                    ><strong>Cloud-First:</strong> Lento,
+                                    depende de red (~1.5s)</span
+                                >
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <svg
+                                    class="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                                    ></path>
+                                </svg>
+                                <span
+                                    ><strong>Local-First:</strong> Instantáneo,
+                                    100% offline (~0ms)</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Configuración
+            const CONFIG = {
+                API_BASE: 'https://roble-api.openlab.uninorte.edu.co',
+                DB_NAME: 'demo_courses_app_af243872e7',
+                TABLE_NAME: 'courses',
+                AUTH: {
+                    email: 'user@example.com',
+                    password: 'Password1.'
+                }
+            }
+
+            // Estado de la aplicación
+            let state = {
+                mode: 'cloud',
+                isOnline: true,
+                accessToken: null,
+                courses: [],
+                localCourses: [],
+                pendingSync: [],
+                logs: []
+            }
+
+            // Elementos del DOM
+            const elements = {
+                cloudBtn: document.getElementById('cloudBtn'),
+                localBtn: document.getElementById('localBtn'),
+                connectionBtn: document.getElementById('connectionBtn'),
+                courseInput: document.getElementById('courseInput'),
+                descriptionInput: document.getElementById('descriptionInput'),
+                createBtn: document.getElementById('createBtn'),
+                courseList: document.getElementById('courseList'),
+                logContainer: document.getElementById('logContainer'),
+                modeTitle: document.getElementById('modeTitle'),
+                architectureInfo: document.getElementById('architectureInfo'),
+                syncStatus: document.getElementById('syncStatus'),
+                syncText: document.getElementById('syncText'),
+                courseCount: document.getElementById('courseCount'),
+                refreshBtn: document.getElementById('refreshBtn'),
+                clearLogs: document.getElementById('clearLogs'),
+                authStatus: document.getElementById('authStatus'),
+                syncExplanation: document.getElementById('syncExplanation')
+            }
+
+            // Función para autenticarse
+            async function authenticate() {
+                addLog('🔑 Intentando autenticar con Roble...', 'info')
+                try {
+                    const url =
+                        CONFIG.API_BASE + '/auth/' + CONFIG.DB_NAME + '/login'
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(CONFIG.AUTH)
+                    })
+
+                    if (!response.ok) {
+                        const errorData = await response.text()
+                        throw new Error('Error de autenticación: ' + errorData)
+                    }
+
+                    const data = await response.json()
+                    state.accessToken = data.accessToken
+
+                    elements.authStatus.className =
+                        'mt-4 inline-block px-4 py-2 rounded-lg bg-green-100 text-green-800 font-semibold'
+                    elements.authStatus.textContent = '🔐 Autenticado con Roble'
+
+                    addLog('✅ Autenticado exitosamente con Roble', 'success')
+                    addLog('📧 Usuario: ' + CONFIG.AUTH.email, 'info')
+                    return true
+                } catch (error) {
+                    elements.authStatus.className =
+                        'mt-4 inline-block px-4 py-2 rounded-lg bg-red-100 text-red-800 font-semibold'
+                    elements.authStatus.textContent =
+                        '❌ Error de autenticación'
+
+                    addLog(
+                        '❌ Error de autenticación: ' + error.message,
+                        'error'
+                    )
+                    return false
+                }
+            }
+
+            // Agregar log
+            function addLog(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString()
+                state.logs.unshift({ message, type, timestamp })
+                if (state.logs.length > 10) state.logs.pop()
+                renderLogs()
+            }
+
+            // Renderizar logs
+            function renderLogs() {
+                if (state.logs.length === 0) {
+                    elements.logContainer.innerHTML =
+                        '<p class="text-gray-400 text-center py-8">Crea un curso para ver el log</p>'
+                    return
+                }
+
+                const colors = {
+                    error: 'bg-red-50 border-red-500',
+                    success: 'bg-green-50 border-green-500',
+                    warning: 'bg-orange-50 border-orange-500',
+                    info: 'bg-blue-50 border-blue-500'
+                }
+
+                elements.logContainer.innerHTML = state.logs
+                    .map(
+                        (log) => `
+                <div class="p-3 rounded-lg border-l-4 ${
+                    colors[log.type]
+                } log-enter">
+                    <div class="flex justify-between items-start">
+                        <span class="text-sm font-mono">${log.message}</span>
+                        <span class="text-xs text-gray-500">${
+                            log.timestamp
+                        }</span>
+                    </div>
+                </div>
+            `
+                    )
+                    .join('')
+            }
+
+            // Renderizar cursos
+            function renderCourses() {
+                const courses =
+                    state.mode === 'cloud' ? state.courses : state.localCourses
+                elements.courseCount.textContent = courses.length
+
+                if (courses.length === 0) {
+                    elements.courseList.innerHTML =
+                        '<p class="text-gray-400 text-center py-8">No hay cursos aún</p>'
+                    return
+                }
+
+                elements.courseList.innerHTML = courses
+                    .map(
+                        (course) => `
+                <div class="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                    <div class="flex-1">
+                        <span class="font-medium block">${course.name}</span>
+                        ${
+                            course.description
+                                ? `<span class="text-xs text-gray-500">${course.description}</span>`
+                                : ''
+                        }
+                    </div>
+                    ${
+                        state.mode === 'local'
+                            ? `
+                        <span class="text-xs px-2 py-1 rounded ${
+                            course.synced
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-orange-100 text-orange-700'
+                        }">
+                            ${course.synced ? '✓ Synced' : '⏳ Pending'}
+                        </span>
+                    `
+                            : ''
+                    }
+                </div>
+            `
+                    )
+                    .join('')
+            }
+
+            // Actualizar UI del modo
+            function updateModeUI() {
+                const isCloud = state.mode === 'cloud'
+
+                // Botones
+                elements.cloudBtn.className = `mode-btn px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                    isCloud
+                        ? 'bg-blue-600 text-white shadow-lg scale-105'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`
+                elements.localBtn.className = `mode-btn px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${
+                    !isCloud
+                        ? 'bg-green-600 text-white shadow-lg scale-105'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`
+
+                // Título
+                elements.modeTitle.innerHTML = `Modo ${
+                    isCloud ? 'Cloud-First' : 'Local-First'
+                }`
+
+                // Mostrar/ocultar explicación
+                elements.syncExplanation.style.display = isCloud
+                    ? 'none'
+                    : 'block'
+
+                // Arquitectura
+                elements.architectureInfo.innerHTML = isCloud
+                    ? `
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-blue-600 rounded-full"></div>
+                    <span>Dispositivo → Internet → Roble (requiere esperar)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Latencia: ~1.5s por operación</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>Requiere conexión siempre</span>
+                </div>
+            `
+                    : `
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-green-600 rounded-full"></div>
+                    <span><strong>1. Local (instantáneo)</strong> → 2. Roble (segundo plano)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span>Guardar local: ~0ms | Subir a Roble: automático</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Los datos SÍ se envían a Roble (sincronización)</span>
+                </div>
+            `
+
+                // Mostrar/ocultar estado de sync
+                elements.syncStatus.className = !isCloud
+                    ? 'mt-4 p-3 bg-green-50 rounded-lg flex items-center gap-2'
+                    : 'mt-4 p-3 bg-green-50 rounded-lg items-center gap-2 hidden'
+
+                renderCourses()
+            }
+
+            // Cloud-First: Crear curso
+            async function createCourseCloudFirst() {
+                const name = elements.courseInput.value.trim()
+                if (!name) return
+
+                if (!state.isOnline) {
+                    addLog('❌ Error: Sin conexión a internet', 'error')
+                    return
+                }
+
+                elements.createBtn.disabled = true
+                elements.createBtn.innerHTML =
+                    '<div class="spinner"></div> Guardando en Roble...'
+                addLog('⏳ Enviando a Roble...', 'warning')
+
+                const startTime = Date.now()
+
+                try {
+                    const url =
+                        CONFIG.API_BASE +
+                        '/database/' +
+                        CONFIG.DB_NAME +
+                        '/insert'
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${state.accessToken}`
+                        },
+                        body: JSON.stringify({
+                            tableName: CONFIG.TABLE_NAME,
+                            records: [
+                                {
+                                    name: name,
+                                    description:
+                                        elements.descriptionInput.value.trim(),
+                                    createdAt: new Date().toISOString()
+                                }
+                            ]
+                        })
+                    })
+
+                    if (!response.ok) throw new Error('Error al guardar')
+
+                    const data = await response.json()
+                    const elapsed = Date.now() - startTime
+
+                    state.courses.push(data.inserted[0])
+                    addLog(
+                        `✅ Curso guardado en Roble (${elapsed}ms)`,
+                        'success'
+                    )
+
+                    elements.courseInput.value = ''
+                    elements.descriptionInput.value = ''
+                    renderCourses()
+                } catch (error) {
+                    addLog(
+                        '❌ Error al guardar en Roble: ' + error.message,
+                        'error'
+                    )
+                } finally {
+                    elements.createBtn.disabled = false
+                    elements.createBtn.innerHTML =
+                        '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Crear Curso'
+                }
+            }
+
+            // Local-First: Crear curso
+            async function createCourseLocalFirst() {
+                const name = elements.courseInput.value.trim()
+                if (!name) return
+
+                const tempId = `course_${Date.now()}`
+                const course = {
+                    _id: tempId,
+                    name: name,
+                    description: elements.descriptionInput.value.trim(),
+                    createdAt: new Date().toISOString(),
+                    synced: false
+                }
+
+                // 1. Guardar localmente primero (instantáneo)
+                state.localCourses.push(course)
+                addLog('✅ Curso guardado localmente (0ms)', 'success')
+
+                elements.courseInput.value = ''
+                elements.descriptionInput.value = ''
+                renderCourses()
+
+                // 2. Sincronizar INMEDIATAMENTE con Roble si hay conexión
+                if (state.isOnline && state.accessToken) {
+                    updateSyncStatus('syncing', '🔄 Enviando a Roble...')
+
+                    try {
+                        const url =
+                            CONFIG.API_BASE +
+                            '/database/' +
+                            CONFIG.DB_NAME +
+                            '/insert'
+
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${state.accessToken}`
+                            },
+                            body: JSON.stringify({
+                                tableName: CONFIG.TABLE_NAME,
+                                records: [
+                                    {
+                                        // NO enviar _id, dejar que Roble lo genere
+                                        name: course.name,
+                                        description: course.description,
+                                        createdAt: course.createdAt
+                                    }
+                                ]
+                            })
+                        })
+
+                        if (!response.ok) {
+                            const errorText = await response.text()
+                            throw new Error(
+                                `HTTP ${response.status}: ${errorText}`
+                            )
+                        }
+
+                        const data = await response.json()
+
+                        // Actualizar el _id local con el que generó Roble
+                        if (data.inserted && data.inserted[0]) {
+                            course._id = data.inserted[0]._id
+                        }
+
+                        // Marcar como sincronizado
+                        course.synced = true
+                        addLog(
+                            `✅ Curso "${course.name}" sincronizado con Roble`,
+                            'success'
+                        )
+                        updateSyncStatus('synced', '✓ Sincronizado con Roble')
+                        renderCourses()
+                    } catch (error) {
+                        addLog(
+                            `⚠️ Error al sincronizar: ${error.message}`,
+                            'warning'
+                        )
+                        addLog('💾 El curso quedó guardado localmente', 'info')
+                        state.pendingSync.push({
+                            action: 'create',
+                            data: course
+                        })
+                        updateSyncStatus(
+                            'pending',
+                            '⚠️ Se sincronizará cuando haya conexión'
+                        )
+                    }
+                } else {
+                    // Sin conexión: agregar a cola de sincronización
+                    state.pendingSync.push({ action: 'create', data: course })
+                    updateSyncStatus(
+                        'pending',
+                        '⚠️ Se sincronizará cuando haya conexión'
+                    )
+                }
+            }
+
+            // Actualizar estado de sincronización
+            function updateSyncStatus(status, text) {
+                elements.syncText.textContent = text
+                const colors = {
+                    synced: 'bg-green-50',
+                    syncing: 'bg-blue-50',
+                    pending: 'bg-orange-50'
+                }
+                elements.syncStatus.className = `mt-4 p-3 ${colors[status]} rounded-lg flex items-center gap-2`
+            }
+
+            // Sincronización en segundo plano (MEJORADA)
+            async function syncInBackground() {
+                if (state.pendingSync.length === 0) {
+                    updateSyncStatus('synced', '✓ Sincronizado con Roble')
+                    return
+                }
+
+                if (!state.isOnline || !state.accessToken) {
+                    updateSyncStatus('pending', '⚠️ Esperando conexión...')
+                    return
+                }
+
+                addLog(
+                    `🔄 Sincronizando ${state.pendingSync.length} cambio(s)...`,
+                    'info'
+                )
+
+                const toSync = [...state.pendingSync]
+                const failed = []
+
+                for (const item of toSync) {
+                    try {
+                        const url =
+                            CONFIG.API_BASE +
+                            '/database/' +
+                            CONFIG.DB_NAME +
+                            '/insert'
+
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${state.accessToken}`
+                            },
+                            body: JSON.stringify({
+                                tableName: CONFIG.TABLE_NAME,
+                                records: [
+                                    {
+                                        // NO enviar _id, dejar que Roble lo genere
+                                        name: item.data.name,
+                                        description: item.data.description,
+                                        createdAt: item.data.createdAt
+                                    }
+                                ]
+                            })
+                        })
+
+                        if (!response.ok) {
+                            const errorText = await response.text()
+                            throw new Error(
+                                `HTTP ${response.status}: ${errorText}`
+                            )
+                        }
+
+                        const data = await response.json()
+
+                        // Marcar como sincronizado y actualizar _id con el de Roble
+                        const course = state.localCourses.find(
+                            (c) => c._id === item.data._id
+                        )
+                        if (course) {
+                            course.synced = true
+                            if (data.inserted && data.inserted[0]) {
+                                course._id = data.inserted[0]._id
+                            }
+                            addLog(
+                                `✅ Curso "${course.name}" sincronizado`,
+                                'success'
+                            )
+                        }
+
+                        // Remover de pendientes
+                        const index = state.pendingSync.findIndex(
+                            (p) => p.data._id === item.data._id
+                        )
+                        if (index > -1) {
+                            state.pendingSync.splice(index, 1)
+                        }
+                    } catch (error) {
+                        addLog(
+                            `❌ Error al sincronizar "${item.data.name}": ${error.message}`,
+                            'error'
+                        )
+                        failed.push(item)
+                    }
+                }
+
+                // Actualizar estado final
+                if (state.pendingSync.length === 0) {
+                    addLog('✅ Sincronización completa', 'success')
+                    updateSyncStatus('synced', '✓ Sincronizado con Roble')
+                } else {
+                    addLog(
+                        `⚠️ ${state.pendingSync.length} pendiente(s)`,
+                        'warning'
+                    )
+                    updateSyncStatus(
+                        'pending',
+                        `⚠️ ${state.pendingSync.length} pendiente(s) de sincronización`
+                    )
+                }
+
+                renderCourses()
+            }
+
+            // Cargar cursos desde Roble
+            async function loadCoursesFromCloud() {
+                try {
+                    addLog('🔄 Cargando desde Roble...', 'info')
+                    const url =
+                        CONFIG.API_BASE +
+                        '/database/' +
+                        CONFIG.DB_NAME +
+                        '/read?tableName=' +
+                        CONFIG.TABLE_NAME
+                    const response = await fetch(url, {
+                        headers: {
+                            Authorization: `Bearer ${state.accessToken}`
+                        }
+                    })
+
+                    if (!response.ok) throw new Error('Error al cargar')
+
+                    const data = await response.json()
+
+                    if (state.mode === 'cloud') {
+                        state.courses = data
+                    } else {
+                        // En Local-First: combinar cursos de Roble con los locales no sincronizados
+                        const cloudCourses = data.map((c) => ({
+                            ...c,
+                            synced: true
+                        }))
+
+                        // Obtener IDs de Roble
+                        const cloudIds = new Set(cloudCourses.map((c) => c._id))
+
+                        // Filtrar cursos locales que NO están en Roble (pendientes)
+                        const localOnlyCourses = state.localCourses.filter(
+                            (c) => !c.synced && !cloudIds.has(c._id)
+                        )
+
+                        // Combinar: cursos de Roble + locales pendientes
+                        state.localCourses = [
+                            ...cloudCourses,
+                            ...localOnlyCourses
+                        ]
+                    }
+
+                    addLog(
+                        `✅ ${data.length} curso(s) cargados de Roble`,
+                        'success'
+                    )
+                    renderCourses()
+                } catch (error) {
+                    addLog('⚠️ Error al cargar: ' + error.message, 'warning')
+                }
+            }
+
+            // Event Listeners
+            elements.cloudBtn.addEventListener('click', async () => {
+                state.mode = 'cloud'
+                updateModeUI()
+                addLog('🌐 Cambiado a Cloud-First', 'info')
+
+                // Cargar cursos de Roble
+                if (state.isOnline && state.accessToken) {
+                    await loadCoursesFromCloud()
+                }
+            })
+
+            elements.localBtn.addEventListener('click', async () => {
+                state.mode = 'local'
+                updateModeUI()
+                addLog('💾 Cambiado a Local-First', 'info')
+
+                // Cargar cursos de Roble si hay conexión
+                if (state.isOnline && state.accessToken) {
+                    await loadCoursesFromCloud()
+                }
+            })
+
+            elements.connectionBtn.addEventListener('click', async () => {
+                state.isOnline = !state.isOnline
+                elements.connectionBtn.className = `px-6 py-3 rounded-lg font-semibold flex items-center gap-2 ${
+                    state.isOnline
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-red-500 text-white hover:bg-red-600'
+                }`
+                document.getElementById('connectionText').textContent =
+                    state.isOnline ? 'Online' : 'Offline'
+
+                addLog(
+                    state.isOnline
+                        ? '📶 Conexión restaurada'
+                        : '📵 Conexión perdida',
+                    state.isOnline ? 'success' : 'warning'
+                )
+
+                // SINCRONIZACIÓN AUTOMÁTICA cuando vuelve la conexión
+                if (
+                    state.isOnline &&
+                    state.mode === 'local' &&
+                    state.accessToken
+                ) {
+                    // Primero, cargar cursos de Roble
+                    await loadCoursesFromCloud()
+
+                    const unsyncedCourses = state.localCourses.filter(
+                        (c) => !c.synced
+                    )
+
+                    if (unsyncedCourses.length > 0) {
+                        addLog(
+                            `🔄 Detectados ${unsyncedCourses.length} curso(s) sin sincronizar`,
+                            'info'
+                        )
+                        updateSyncStatus(
+                            'syncing',
+                            `🔄 Sincronizando ${unsyncedCourses.length} curso(s)...`
+                        )
+
+                        // Agregar cursos no sincronizados a la cola (evitando duplicados)
+                        unsyncedCourses.forEach((course) => {
+                            const alreadyInQueue = state.pendingSync.some(
+                                (item) => item.data._id === course._id
+                            )
+                            if (!alreadyInQueue) {
+                                state.pendingSync.push({
+                                    action: 'create',
+                                    data: course
+                                })
+                            }
+                        })
+
+                        // Ejecutar sincronización después de un breve delay
+                        setTimeout(() => syncInBackground(), 500)
+                    } else if (state.pendingSync.length > 0) {
+                        setTimeout(() => syncInBackground(), 500)
+                    } else {
+                        updateSyncStatus('synced', '✓ Sincronizado con Roble')
+                    }
+                }
+            })
+
+            elements.createBtn.addEventListener('click', () => {
+                if (state.mode === 'cloud') {
+                    createCourseCloudFirst()
+                } else {
+                    createCourseLocalFirst()
+                }
+            })
+
+            elements.courseInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    if (state.mode === 'cloud') {
+                        createCourseCloudFirst()
+                    } else {
+                        createCourseLocalFirst()
+                    }
+                }
+            })
+
+            elements.refreshBtn.addEventListener('click', loadCoursesFromCloud)
+
+            elements.clearLogs.addEventListener('click', () => {
+                state.logs = []
+                renderLogs()
+            })
+
+            // Inicializar
+            async function init() {
+                addLog('🚀 Iniciando demo...', 'info')
+                const authenticated = await authenticate()
+
+                if (authenticated) {
+                    // Cargar cursos inicialmente (modo cloud por defecto)
+                    await loadCoursesFromCloud()
+                    updateModeUI()
+                } else {
+                    addLog('⚠️ Demo funcionando en modo limitado', 'warning')
+                    updateModeUI()
+                }
+            }
+
+            init()
+        </script>
+    </body>
+</html>
