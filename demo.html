@@ -249,7 +249,20 @@
                             id="courseList"
                             class="space-y-2 max-h-80 overflow-y-auto"
                         >
-                            <p class="text-gray-400 text-center py-8">
+                            <div
+                                id="loadingSpinner"
+                                class="text-center py-8"
+                                style="display: none"
+                            >
+                                <div class="spinner mx-auto mb-2"></div>
+                                <p class="text-gray-500 text-sm">
+                                    Cargando cursos...
+                                </p>
+                            </div>
+                            <p
+                                id="emptyMessage"
+                                class="text-gray-400 text-center py-8"
+                            >
                                 No hay cursos aún
                             </p>
                         </div>
@@ -335,7 +348,9 @@
                 AUTH: {
                     email: 'user@example.com',
                     password: 'Password1.'
-                }
+                },
+                CACHE_SIZE: 10, // Últimos 10 registros en cache
+                PAGE_SIZE: 5 // Cursos por página
             }
 
             // Estado de la aplicación
@@ -346,7 +361,10 @@
                 courses: [],
                 localCourses: [],
                 pendingSync: [],
-                logs: []
+                logs: [],
+                currentPage: 1,
+                totalPages: 1,
+                isLoading: false
             }
 
             // Elementos del DOM
@@ -367,11 +385,114 @@
                 refreshBtn: document.getElementById('refreshBtn'),
                 clearLogs: document.getElementById('clearLogs'),
                 authStatus: document.getElementById('authStatus'),
-                syncExplanation: document.getElementById('syncExplanation')
+                syncExplanation: document.getElementById('syncExplanation'),
+                loadingSpinner: document.getElementById('loadingSpinner'),
+                emptyMessage: document.getElementById('emptyMessage')
+            }
+
+            // ============ FUNCIONES DE LOCALSTORAGE ============
+
+            function showLoading() {
+                state.isLoading = true
+                elements.loadingSpinner.style.display = 'block'
+                elements.emptyMessage.style.display = 'none'
+            }
+
+            function hideLoading() {
+                state.isLoading = false
+                elements.loadingSpinner.style.display = 'none'
+            }
+
+            function saveToLocalStorage() {
+                try {
+                    localStorage.setItem(
+                        'demo_local_courses',
+                        JSON.stringify(state.localCourses)
+                    )
+                    localStorage.setItem(
+                        'demo_pending_sync',
+                        JSON.stringify(state.pendingSync)
+                    )
+                } catch (error) {
+                    console.error('Error al guardar en LocalStorage:', error)
+                }
+            }
+
+            function loadFromLocalStorage() {
+                try {
+                    const localCourses =
+                        localStorage.getItem('demo_local_courses')
+                    const pendingSync =
+                        localStorage.getItem('demo_pending_sync')
+
+                    if (localCourses) {
+                        state.localCourses = JSON.parse(localCourses)
+                        addLog(
+                            `💾 ${state.localCourses.length} curso(s) cargados de LocalStorage`,
+                            'info'
+                        )
+                    }
+
+                    if (pendingSync) {
+                        state.pendingSync = JSON.parse(pendingSync)
+                        if (state.pendingSync.length > 0) {
+                            addLog(
+                                `⏳ ${state.pendingSync.length} curso(s) pendientes de sincronizar`,
+                                'warning'
+                            )
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error al cargar de LocalStorage:', error)
+                }
+            }
+
+            function saveCacheToLocalStorage(courses) {
+                try {
+                    // Guardar solo los últimos N registros
+                    const cache = courses.slice(-CONFIG.CACHE_SIZE)
+                    localStorage.setItem(
+                        'demo_roble_cache',
+                        JSON.stringify(cache)
+                    )
+                    localStorage.setItem(
+                        'demo_cache_timestamp',
+                        Date.now().toString()
+                    )
+                } catch (error) {
+                    console.error('Error al guardar cache:', error)
+                }
+            }
+
+            function loadCacheFromLocalStorage() {
+                try {
+                    const cache = localStorage.getItem('demo_roble_cache')
+                    const timestamp = localStorage.getItem(
+                        'demo_cache_timestamp'
+                    )
+
+                    if (cache) {
+                        const cachedCourses = JSON.parse(cache)
+                        const cacheDate = timestamp
+                            ? new Date(parseInt(timestamp))
+                            : new Date()
+                        addLog(
+                            `📦 ${
+                                cachedCourses.length
+                            } curso(s) cargados de cache (${cacheDate.toLocaleString()})`,
+                            'info'
+                        )
+                        return cachedCourses
+                    }
+                } catch (error) {
+                    console.error('Error al cargar cache:', error)
+                }
+                return []
             }
 
             // Función para autenticarse
             async function authenticate() {
+                const startTime = Date.now()
                 addLog('🔑 Intentando autenticar con Roble...', 'info')
                 try {
                     const url =
@@ -390,21 +511,28 @@
                     const data = await response.json()
                     state.accessToken = data.accessToken
 
+                    const elapsed = Date.now() - startTime
+
                     elements.authStatus.className =
                         'mt-4 inline-block px-4 py-2 rounded-lg bg-green-100 text-green-800 font-semibold'
                     elements.authStatus.textContent = '🔐 Autenticado con Roble'
 
-                    addLog('✅ Autenticado exitosamente con Roble', 'success')
+                    addLog(
+                        `✅ Autenticado exitosamente (${elapsed}ms)`,
+                        'success'
+                    )
                     addLog('📧 Usuario: ' + CONFIG.AUTH.email, 'info')
                     return true
                 } catch (error) {
+                    const elapsed = Date.now() - startTime
+
                     elements.authStatus.className =
                         'mt-4 inline-block px-4 py-2 rounded-lg bg-red-100 text-red-800 font-semibold'
                     elements.authStatus.textContent =
                         '❌ Error de autenticación'
 
                     addLog(
-                        '❌ Error de autenticación: ' + error.message,
+                        `❌ Error de autenticación: ${error.message} (${elapsed}ms)`,
                         'error'
                     )
                     return false
@@ -452,19 +580,39 @@
                     .join('')
             }
 
-            // Renderizar cursos
+            // Renderizar cursos con paginación
             function renderCourses() {
+                // Si está cargando, no renderizar nada (el spinner ya está visible)
+                if (state.isLoading) {
+                    return
+                }
+
                 const courses =
                     state.mode === 'cloud' ? state.courses : state.localCourses
                 elements.courseCount.textContent = courses.length
 
+                // Ocultar spinner y mensaje vacío
+                hideLoading()
+
                 if (courses.length === 0) {
-                    elements.courseList.innerHTML =
-                        '<p class="text-gray-400 text-center py-8">No hay cursos aún</p>'
+                    elements.emptyMessage.style.display = 'block'
+                    elements.courseList.innerHTML = ''
+                    const emptyMsg = document.createElement('p')
+                    emptyMsg.className = 'text-gray-400 text-center py-8'
+                    emptyMsg.textContent = 'No hay cursos aún'
+                    elements.courseList.appendChild(emptyMsg)
                     return
                 }
 
-                elements.courseList.innerHTML = courses
+                elements.emptyMessage.style.display = 'none'
+
+                // Calcular paginación
+                state.totalPages = Math.ceil(courses.length / CONFIG.PAGE_SIZE)
+                const startIndex = (state.currentPage - 1) * CONFIG.PAGE_SIZE
+                const endIndex = startIndex + CONFIG.PAGE_SIZE
+                const paginatedCourses = courses.slice(startIndex, endIndex)
+
+                elements.courseList.innerHTML = paginatedCourses
                     .map(
                         (course) => `
                 <div class="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
@@ -493,7 +641,54 @@
             `
                     )
                     .join('')
+
+                // Agregar controles de paginación
+                if (state.totalPages > 1) {
+                    elements.courseList.innerHTML += `
+                        <div class="flex justify-center items-center gap-4 mt-4 pt-4 border-t">
+                            <button onclick="changePage(-1)" ${
+                                state.currentPage === 1 ? 'disabled' : ''
+                            } 
+                                class="px-3 py-1 rounded ${
+                                    state.currentPage === 1
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                                }">
+                                ← Anterior
+                            </button>
+                            <span class="text-sm text-gray-600">
+                                Página ${state.currentPage} de ${
+                        state.totalPages
+                    }
+                            </span>
+                            <button onclick="changePage(1)" ${
+                                state.currentPage === state.totalPages
+                                    ? 'disabled'
+                                    : ''
+                            } 
+                                class="px-3 py-1 rounded ${
+                                    state.currentPage === state.totalPages
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                                }">
+                                Siguiente →
+                            </button>
+                        </div>
+                    `
+                }
             }
+
+            // Cambiar página
+            function changePage(direction) {
+                const newPage = state.currentPage + direction
+                if (newPage >= 1 && newPage <= state.totalPages) {
+                    state.currentPage = newPage
+                    renderCourses()
+                }
+            }
+
+            // Hacer changePage accesible globalmente para onclick
+            window.changePage = changePage
 
             // Actualizar UI del modo
             function updateModeUI() {
@@ -652,6 +847,7 @@
 
                 // 1. Guardar localmente primero (instantáneo)
                 state.localCourses.push(course)
+                saveToLocalStorage() // Persistir en LocalStorage
                 addLog('✅ Curso guardado localmente (0ms)', 'success')
 
                 elements.courseInput.value = ''
@@ -660,6 +856,7 @@
 
                 // 2. Sincronizar INMEDIATAMENTE con Roble si hay conexión
                 if (state.isOnline && state.accessToken) {
+                    const syncStartTime = Date.now()
                     updateSyncStatus('syncing', '🔄 Enviando a Roble...')
 
                     try {
@@ -696,6 +893,7 @@
                         }
 
                         const data = await response.json()
+                        const syncElapsed = Date.now() - syncStartTime
 
                         // Actualizar el _id local con el que generó Roble
                         if (data.inserted && data.inserted[0]) {
@@ -704,15 +902,17 @@
 
                         // Marcar como sincronizado
                         course.synced = true
+                        saveToLocalStorage() // Actualizar LocalStorage
                         addLog(
-                            `✅ Curso "${course.name}" sincronizado con Roble`,
+                            `✅ Curso "${course.name}" sincronizado con Roble (${syncElapsed}ms)`,
                             'success'
                         )
                         updateSyncStatus('synced', '✓ Sincronizado con Roble')
                         renderCourses()
                     } catch (error) {
+                        const syncElapsed = Date.now() - syncStartTime
                         addLog(
-                            `⚠️ Error al sincronizar: ${error.message}`,
+                            `⚠️ Error al sincronizar: ${error.message} (${syncElapsed}ms)`,
                             'warning'
                         )
                         addLog('💾 El curso quedó guardado localmente', 'info')
@@ -720,6 +920,7 @@
                             action: 'create',
                             data: course
                         })
+                        saveToLocalStorage() // Guardar pendientes
                         updateSyncStatus(
                             'pending',
                             '⚠️ Se sincronizará cuando haya conexión'
@@ -728,6 +929,7 @@
                 } else {
                     // Sin conexión: agregar a cola de sincronización
                     state.pendingSync.push({ action: 'create', data: course })
+                    saveToLocalStorage() // Guardar pendientes
                     updateSyncStatus(
                         'pending',
                         '⚠️ Se sincronizará cuando haya conexión'
@@ -758,6 +960,7 @@
                     return
                 }
 
+                const syncStartTime = Date.now()
                 addLog(
                     `🔄 Sincronizando ${state.pendingSync.length} cambio(s)...`,
                     'info'
@@ -767,6 +970,7 @@
                 const failed = []
 
                 for (const item of toSync) {
+                    const itemStartTime = Date.now()
                     try {
                         const url =
                             CONFIG.API_BASE +
@@ -801,6 +1005,7 @@
                         }
 
                         const data = await response.json()
+                        const itemElapsed = Date.now() - itemStartTime
 
                         // Marcar como sincronizado y actualizar _id con el de Roble
                         const course = state.localCourses.find(
@@ -812,7 +1017,7 @@
                                 course._id = data.inserted[0]._id
                             }
                             addLog(
-                                `✅ Curso "${course.name}" sincronizado`,
+                                `✅ Curso "${course.name}" sincronizado (${itemElapsed}ms)`,
                                 'success'
                             )
                         }
@@ -824,18 +1029,26 @@
                         if (index > -1) {
                             state.pendingSync.splice(index, 1)
                         }
+
+                        saveToLocalStorage() // Guardar cambios
                     } catch (error) {
+                        const itemElapsed = Date.now() - itemStartTime
                         addLog(
-                            `❌ Error al sincronizar "${item.data.name}": ${error.message}`,
+                            `❌ Error al sincronizar "${item.data.name}": ${error.message} (${itemElapsed}ms)`,
                             'error'
                         )
                         failed.push(item)
                     }
                 }
 
+                const syncElapsed = Date.now() - syncStartTime
+
                 // Actualizar estado final
                 if (state.pendingSync.length === 0) {
-                    addLog('✅ Sincronización completa', 'success')
+                    addLog(
+                        `✅ Sincronización completa (${syncElapsed}ms total)`,
+                        'success'
+                    )
                     updateSyncStatus('synced', '✓ Sincronizado con Roble')
                 } else {
                     addLog(
@@ -848,11 +1061,19 @@
                     )
                 }
 
+                saveToLocalStorage() // Guardar estado final
                 renderCourses()
             }
 
             // Cargar cursos desde Roble
             async function loadCoursesFromCloud() {
+                const startTime = Date.now()
+
+                // Solo mostrar spinner en Cloud-First
+                if (state.mode === 'cloud') {
+                    showLoading()
+                }
+
                 try {
                     addLog('🔄 Cargando desde Roble...', 'info')
                     const url =
@@ -870,6 +1091,10 @@
                     if (!response.ok) throw new Error('Error al cargar')
 
                     const data = await response.json()
+                    const elapsed = Date.now() - startTime
+
+                    // Guardar cache de Roble (últimos N registros)
+                    saveCacheToLocalStorage(data)
 
                     if (state.mode === 'cloud') {
                         state.courses = data
@@ -893,15 +1118,47 @@
                             ...cloudCourses,
                             ...localOnlyCourses
                         ]
+
+                        saveToLocalStorage() // Guardar estado actualizado
                     }
 
                     addLog(
-                        `✅ ${data.length} curso(s) cargados de Roble`,
+                        `✅ ${data.length} curso(s) cargados de Roble (${elapsed}ms)`,
                         'success'
                     )
+
+                    hideLoading() // Ocultar spinner
+                    state.currentPage = 1 // Reset paginación
                     renderCourses()
                 } catch (error) {
-                    addLog('⚠️ Error al cargar: ' + error.message, 'warning')
+                    const elapsed = Date.now() - startTime
+                    hideLoading() // Ocultar spinner en caso de error
+                    addLog(
+                        `⚠️ Error al cargar: ${error.message} (${elapsed}ms)`,
+                        'warning'
+                    )
+
+                    // Si falla y estamos en Local-First sin conexión, cargar cache
+                    if (state.mode === 'local' && !state.isOnline) {
+                        const cachedCourses = loadCacheFromLocalStorage()
+                        if (cachedCourses.length > 0) {
+                            const cloudIds = new Set(
+                                cachedCourses.map((c) => c._id)
+                            )
+                            const localOnlyCourses = state.localCourses.filter(
+                                (c) => !c.synced && !cloudIds.has(c._id)
+                            )
+                            state.localCourses = [
+                                ...cachedCourses.map((c) => ({
+                                    ...c,
+                                    synced: true
+                                })),
+                                ...localOnlyCourses
+                            ]
+                            state.currentPage = 1
+                            renderCourses()
+                        }
+                    }
                 }
             }
 
@@ -911,8 +1168,9 @@
                 updateModeUI()
                 addLog('🌐 Cambiado a Cloud-First', 'info')
 
-                // Cargar cursos de Roble
+                // Cargar cursos de Roble con spinner
                 if (state.isOnline && state.accessToken) {
+                    showLoading()
                     await loadCoursesFromCloud()
                 }
             })
@@ -922,7 +1180,10 @@
                 updateModeUI()
                 addLog('💾 Cambiado a Local-First', 'info')
 
-                // Cargar cursos de Roble si hay conexión
+                // Mostrar datos locales inmediatamente
+                renderCourses()
+
+                // Cargar cursos de Roble en segundo plano si hay conexión
                 if (state.isOnline && state.accessToken) {
                     await loadCoursesFromCloud()
                 }
@@ -1019,14 +1280,58 @@
             // Inicializar
             async function init() {
                 addLog('🚀 Iniciando demo...', 'info')
+
+                // Cargar datos de LocalStorage primero
+                loadFromLocalStorage()
+
+                // En Local-First: mostrar datos locales inmediatamente
+                if (state.mode === 'local' && state.localCourses.length > 0) {
+                    addLog('💾 Datos cargados de LocalStorage', 'info')
+                    renderCourses()
+                } else if (state.mode === 'cloud') {
+                    // En Cloud-First: mostrar spinner hasta que carguen los datos
+                    showLoading()
+                }
+
                 const authenticated = await authenticate()
 
                 if (authenticated) {
-                    // Cargar cursos inicialmente (modo cloud por defecto)
+                    // Cargar cursos desde Roble
                     await loadCoursesFromCloud()
+
+                    // Si hay cursos pendientes de sincronizar y hay conexión, sincronizar
+                    if (
+                        state.pendingSync.length > 0 &&
+                        state.isOnline &&
+                        state.mode === 'local'
+                    ) {
+                        addLog(
+                            `🔄 Sincronizando ${state.pendingSync.length} curso(s) pendiente(s)...`,
+                            'info'
+                        )
+                        setTimeout(() => syncInBackground(), 1000)
+                    }
+
                     updateModeUI()
                 } else {
+                    hideLoading() // Ocultar spinner si falla la autenticación
                     addLog('⚠️ Demo funcionando en modo limitado', 'warning')
+
+                    // Sin autenticación, usar solo cache y datos locales
+                    if (state.mode === 'local') {
+                        const cachedCourses = loadCacheFromLocalStorage()
+                        if (
+                            cachedCourses.length > 0 &&
+                            state.localCourses.length === 0
+                        ) {
+                            state.localCourses = cachedCourses.map((c) => ({
+                                ...c,
+                                synced: true
+                            }))
+                            renderCourses()
+                        }
+                    }
+
                     updateModeUI()
                 }
             }
